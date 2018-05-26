@@ -1,122 +1,126 @@
-import React, { Component } from 'react';
-import { Text, View } from 'react-native';
-import { StyleSheet } from 'react-native';
+import React, { Component } from "react";
+import { AppRegistry, StyleSheet, Dimensions, Image, View, StatusBar, TouchableOpacity, Text } from "react-native";
+
 import MapView from 'react-native-maps';
-import { Marker } from 'react-native-maps';
-export default class App extends Component {
+import Polyline from '@mapbox/polyline';
 
-  state = {
-    region: {
-      latitude: -8.149407,
-      longitude: 115.216667,
-      latitudeDelta: 0.8922,
-      longitudeDelta: 0.8421,
-    },
-    markers : [
-      {
-        key:1,
-        latlng: {
-          latitude:-8.1550617,
-          longitude: 115.0644899
-        },
-        title: 'Museum Buleleng',
-        subtitle: 'berlokasi di Jl Veteran no 23 singaraja Bali'
-      },
-      {
-        key:2,
-        latlng: {
-          latitude:-8.4629415,
-          longitude: 115.1976722
-        },
-        title: 'Museum Bali',
-        subtitle: 'museum penyimpanan peningggalan masa lampau manusia dan etnografi'
-      },
-      {
-        key:3,
-        latlng: {
-          latitude:-8.5240722,
-          longitude: 115.2619445
-        },
-        title: 'Museum Puri Lukisan'
-      }
-      ,
-      {
-        key:4,
-        latlng: {
-          latitude:-8.6206825,
-          longitude: 115.1735166
-        },
-        title: 'Museum Le Mayeur'
-      }
-   ]
-  };
 
+class App extends Component {
+  constructor(props) {
+    super(props);
+
+    this.state = {
+      latitude: null,
+      longitude: null,
+      error: null,
+      concat: null,
+      coords:[],
+      x: 'false',
+      cordLatitude:-8.23,
+      cordLongitude:115.02,
+    };
+
+    this.mergeLot = this.mergeLot.bind(this);
+
+  }
+
+  componentDidMount() {
+    navigator.geolocation.getCurrentPosition(
+       (position) => {
+         this.setState({
+           latitude: position.coords.latitude,
+           longitude: position.coords.longitude,
+           error: null,
+         });
+         this.mergeLot();
+       },
+       (error) => this.setState({ error: error.message }),
+       { enableHighAccuracy: false, timeout: 200000, maximumAge: 1000 },
+     );
+
+   }
+
+  mergeLot(){
+    if (this.state.latitude != null && this.state.longitude!=null)
+     {
+       let concatLot = this.state.latitude +","+this.state.longitude
+       this.setState({
+         concat: concatLot
+       }, () => {
+         this.getDirections(concatLot, "-8.239648,115.024726");
+       });
+     }
+
+   }
+
+   async getDirections(startLoc, destinationLoc) {
+
+         try {
+             let resp = await fetch(`https://maps.googleapis.com/maps/api/directions/json?origin=${ startLoc }&destination=${ destinationLoc }`)
+             let respJson = await resp.json();
+             let points = Polyline.decode(respJson.routes[0].overview_polyline.points);
+             let coords = points.map((point, index) => {
+                 return  {
+                     latitude : point[0],
+                     longitude : point[1]
+                 }
+             })
+             this.setState({coords: coords})
+             this.setState({x: "true"})
+             return coords
+         } catch(error) {
+           console.log('masuk fungsi')
+             this.setState({x: "error"})
+             return error
+         }
+     }
   render() {
+
     return (
-      <View style={styles.contMain}>
-        <View style={styles.contHeader}>
-            <Text style={styles.textHeader}>
-              Peta Museum di Bali
-            </Text>
-        </View>
-        <View style={styles.contMaps}>
-              <MapView
-                style={styles.map}
-                region={this.state.region}
-              >
-              {this.state.markers.map(mark => (
-              <Marker
-                  key = {mark.key}
-                  coordinate={mark.latlng}
-                  title={mark.title}
-                  description={mark.subtitle}
-                />
-              ))}
-              </MapView>
-        </View>
-        <View style={styles.contFooter}>
-           <Text style={styles.textFooter}> Intan Pebriyanti</Text>
-        </View>
-      </View>
+      <MapView style={styles.map} initialRegion={{
+       latitude:-8.239648,
+       longitude:115.024726,
+       latitudeDelta: 1,
+       longitudeDelta: 1
+      }}>
+
+      {!!this.state.latitude && !!this.state.longitude && <MapView.Marker
+         coordinate={{"latitude":this.state.latitude,"longitude":this.state.longitude}}
+         title={"Your Location"}
+       />}
+
+       {!!this.state.cordLatitude && !!this.state.cordLongitude && <MapView.Marker
+          coordinate={{"latitude":this.state.cordLatitude,"longitude":this.state.cordLongitude}}
+          title={"Your Destination"}
+        />}
+
+       {!!this.state.latitude && !!this.state.longitude && this.state.x == 'true' && <MapView.Polyline
+            coordinates={this.state.coords}
+            strokeWidth={2}
+            strokeColor="red"/>
+        }
+
+        {!!this.state.latitude && !!this.state.longitude && this.state.x == 'error' && <MapView.Polyline
+          coordinates={[
+              {latitude: this.state.latitude, longitude: this.state.longitude},
+              {latitude: this.state.cordLatitude, longitude: this.state.cordLongitude},
+          ]}
+          strokeWidth={2}
+          strokeColor="red"/>
+         }
+      </MapView>
     );
   }
 }
 
 const styles = StyleSheet.create({
   map: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
-  contMain: {
-      flex : 1
-  },
-  contHeader: {
-    backgroundColor: 'green',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    position: 'relative'
-  },
-  contMaps : {
-    flex : 10
-  },
-  textHeader: {
-    fontSize: 20,
-    color: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  contFooter: {
-    backgroundColor: 'green',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    position: 'relative'
-  },
-  textFooter: {
-    fontSize: 16,
-    color: 'white',
-    alignItems: 'center',
-    justifyContent: 'center',
-  }
-
 });
+
+export default App;
